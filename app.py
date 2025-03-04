@@ -4,9 +4,11 @@ from PIL import Image
 import datetime
 import plotly.graph_objects as go
 import os
+import io  # Import the io module
+
 
 # --- Page Config ---
-st.set_page_config(page_title="K-water AI Lab 업무 관리 시스템", layout="wide")
+st.set_page_config(page_title="K-water AI Lab 업무 관리 Tool", layout="wide")
 
 # --- Logo (Simplified) ---
 logo_path = "AI_Lab_logo.jpg"
@@ -53,9 +55,20 @@ tasks_df = load_data()
 # --- Sidebar ---
 with st.sidebar:
     st.header("메뉴")
-    menu = st.radio("선택", ["업무 현황", "업무 추가", "관리자 설정(예정)"])
+    menu = st.radio("선택", ["업무 현황", "업무 추가", "데이터 업로드", "관리자 설정(예정)"])  # Added "데이터 업로드"
     show_graph = st.checkbox("현황 그래프 표시", value=True)
     show_table = st.checkbox("현황 테이블 표시", value=True)
+
+    # CSV Download Button (in the sidebar)
+    if not tasks_df.empty:
+        csv = tasks_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="CSV 파일 다운로드",
+            data=csv,
+            file_name='kwater_tasks.csv',
+            mime='text/csv',
+        )
+
 
 # --- Main Content ---
 
@@ -131,11 +144,42 @@ elif menu == "업무 추가":
                     "등록일": datetime.date.today().strftime("%Y-%m-%d"),
                 }
 
-                # Append to DataFrame and save
                 tasks_df = pd.concat([tasks_df, pd.DataFrame([new_task])], ignore_index=True)
                 tasks_df.to_csv(DATA_FILE, index=False)
-                st.success("업무가 성공적으로 추가되었습니다.")  # Show success message
-                # NO st.experimental_rerun() HERE!
+                st.success("업무가 성공적으로 추가되었습니다.")
+
+elif menu == "데이터 업로드":
+    st.subheader("데이터 업로드")
+    uploaded_file = st.file_uploader("CSV 파일 업로드", type=["csv"])
+
+    if uploaded_file is not None:
+        try:
+            # Read the uploaded CSV file
+            uploaded_df = pd.read_csv(uploaded_file)
+
+            # Validate the uploaded file (check for required columns)
+            required_columns = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
+            if not all(col in uploaded_df.columns for col in required_columns):
+                st.error(f"업로드된 파일에 필요한 컬럼이 없습니다. 다음 컬럼들이 필요합니다: {', '.join(required_columns)}")
+            else:
+                # Confirm overwrite with a selectbox
+                overwrite = st.selectbox("데이터 처리 방법", ["기존 데이터에 추가", "기존 데이터 덮어쓰기"])
+
+                if st.button("데이터 업로드"):  # Use a regular button
+                    if overwrite == "기존 데이터에 추가":
+                         # Append the uploaded data to the existing data
+                        tasks_df = pd.concat([tasks_df, uploaded_df], ignore_index=True)
+                    else: # "기존 데이터 덮어쓰기"
+                        # Overwrite the existing data with the uploaded data
+                        tasks_df = uploaded_df
+
+                    # Save the updated DataFrame to the CSV file
+                    tasks_df.to_csv(DATA_FILE, index=False)
+                    st.success("데이터가 성공적으로 업로드되었습니다.")
+
+        except Exception as e:
+            st.error(f"파일 업로드 중 오류 발생: {e}")
+
 
 
 elif menu == "관리자 설정(예정)":
