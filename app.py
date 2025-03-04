@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 from PIL import Image
 import datetime
-import plotly.graph_objects as go  # plotly 추가
+import plotly.graph_objects as go
+import os  # 파일 존재 여부 확인을 위해 os 모듈 추가
 
 
 # --- 페이지 설정 ---
@@ -28,7 +29,7 @@ members = {
     "김세훈": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
     "정희진": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
     "최영돈": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
-     "류제완": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
+    "류제완": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
     "이소령": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
     "김학준": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
     "김용섭": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
@@ -40,8 +41,19 @@ members = {
 task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"]
 
 
-# --- 데이터 저장 (임시: 리스트, 추후 DB 연동) ---
-tasks = []
+# --- 데이터 저장 (CSV 파일 사용) ---
+DATA_FILE = "tasks.csv"  # CSV 파일 이름
+
+# CSV 파일에서 데이터 로드 (파일이 없으면 빈 DataFrame 생성)
+if os.path.exists(DATA_FILE):
+    tasks_df = pd.read_csv(DATA_FILE)
+    # DataFrame을 dictionary list로 변환
+    tasks = tasks_df.to_dict('records')
+else:
+    tasks = []
+    tasks_df = pd.DataFrame()
+
+
 
 # --- 사이드바 (메뉴) ---
 with st.sidebar:
@@ -58,58 +70,59 @@ if menu == "업무 현황":
 
     # 전체 업무 현황 테이블 (사이드바 체크 여부에 따라 표시)
     if show_table:
-        if tasks:
+        if not tasks_df.empty:  # DataFrame이 비어있지 않을 때만 표시
             st.subheader("전체 업무 목록")
-            df_tasks = pd.DataFrame(tasks)
-            st.dataframe(df_tasks)
+            st.dataframe(tasks_df)
         else:
-          st.write("등록된 업무가 없습니다.")
+            st.write("등록된 업무가 없습니다.")
 
     # 개인별 업무 현황 그래프 (사이드바 체크 여부에 따라 표시)
     if show_graph:
-      if tasks:
-        st.subheader("개인별 업무 현황 그래프")
+        if not tasks_df.empty:
+            st.subheader("개인별 업무 현황 그래프")
 
-        # 데이터 준비 (개인별 목표 건수, 진행/완료 건수)
-        member_names = list(members.keys())
-        target_counts = []  # 개인별 목표 건수
-        in_progress_counts = []  # 진행 중 건수
-        completed_counts = []  # 완료 건수
+            # 데이터 준비 (개인별 목표 건수, 진행/완료 건수)
+            member_names = list(members.keys())
+            target_counts = []  # 개인별 목표 건수
+            in_progress_counts = []  # 진행 중 건수
+            completed_counts = []  # 완료 건수
 
-        for member in member_names:
-          member_tasks = [task for task in tasks if task["담당자"] == member]
-          target_counts.append(len(member_tasks)) # 총 개수를 목표로 설정
-          in_progress_counts.append(sum(1 for task in member_tasks if task["상태"] == "진행 중"))
-          completed_counts.append(sum(1 for task in member_tasks if task["상태"] == "완료"))
+            for member in member_names:
+                member_tasks = tasks_df[tasks_df["담당자"] == member]
+                target_counts.append(len(member_tasks))  # 총 개수를 목표로 설정
+                in_progress_counts.append(
+                    member_tasks[member_tasks["상태"] == "진행 중"].shape[0]
+                )  # shape[0]는 행의 개수
+                completed_counts.append(
+                    member_tasks[member_tasks["상태"] == "완료"].shape[0]
+                )
 
+            # Plotly 그래프 생성
+            fig = go.Figure(
+                data=[
+                    go.Bar(name="목표", x=member_names, y=target_counts),
+                    go.Bar(name="진행 중", x=member_names, y=in_progress_counts),
+                    go.Bar(name="완료", x=member_names, y=completed_counts),
+                ]
+            )
+            # 레이아웃 설정
+            fig.update_layout(barmode="group", xaxis_title="연구원", yaxis_title="업무 건수")
+            st.plotly_chart(fig)
 
-        # Plotly 그래프 생성
-        fig = go.Figure(data=[
-            go.Bar(name='목표', x=member_names, y=target_counts),
-            go.Bar(name='진행 중', x=member_names, y=in_progress_counts),
-            go.Bar(name='완료', x=member_names, y=completed_counts)
-        ])
-        # 레이아웃 설정
-        fig.update_layout(barmode='group', xaxis_title="연구원", yaxis_title="업무 건수")
-        st.plotly_chart(fig)
-
-      else:
-          st.write("등록된 업무가 없습니다.")
-
+        else:
+            st.write("등록된 업무가 없습니다.")
 
     # 개인별 업무 현황 테이블 (사이드바 체크와 관계없이 항상 표시)
     st.subheader("개인별 업무 목록")
-    if tasks:
-      for member in members:
-          member_tasks = [task for task in tasks if task["담당자"] == member]
-          if member_tasks:
-              st.write(f"**{member}**")
-              df_member_tasks = pd.DataFrame(member_tasks)[["업무 제목", "업무 유형", "마감일", "상태"]] #필요한 열만 표시
-              st.dataframe(df_member_tasks)
+    if not tasks_df.empty:
+        for member in members:
+            member_tasks_df = tasks_df[tasks_df["담당자"] == member]
+            if not member_tasks_df.empty:
+                st.write(f"**{member}**")
+                st.dataframe(member_tasks_df[["업무 제목", "업무 유형", "마감일", "상태"]])  # 필요한 열만 표시
 
     else:
         st.write("등록된 업무가 없습니다.")
-
 
 
 # --- 업무 추가 페이지 ---
@@ -130,8 +143,8 @@ elif menu == "업무 추가":
             if not task_name or not assigned_member or not due_date:
                 st.error("필수 입력 항목을 모두 채워주세요.")
             else:
-                # 데이터 저장
-                tasks.append({
+                # 데이터 저장 (딕셔너리 생성)
+                new_task = {
                     "업무 제목": task_name,
                     "업무 유형": task_type,
                     "담당자": assigned_member,
@@ -139,9 +152,19 @@ elif menu == "업무 추가":
                     "상태": task_status,
                     "세부 내용": task_details,
                     "등록일": datetime.date.today().strftime("%Y-%m-%d"),
-                })
+                }
+
+                # tasks 리스트에 추가
+                tasks.append(new_task)
+                
+                # 딕셔너리 리스트를 DataFrame으로 변환
+                tasks_df = pd.DataFrame(tasks)
+
+                # CSV 파일로 저장
+                tasks_df.to_csv(DATA_FILE, index=False)
+
                 st.success("업무가 성공적으로 추가되었습니다.")
-                st.experimental_rerun()
+                st.experimental_rerun()  # 페이지 새로고침
 
 
 # --- 관리자 설정 페이지 (예정) ---
@@ -153,5 +176,6 @@ elif menu == "관리자 설정(예정)":
 # --- 하단: K-water AI LAB 정보 ---
 st.markdown("---")
 st.markdown("**K-water AI LAB**")
-st.markdown("참여 인력: 김성훈, 이호현, 이충성, 정지영, 김세훈, 정희진, 최영돈, 류제완, 이소령, 김학준, 김용섭, 이아론, 추가채용(예정) (총 13명, 추가 가능)")
-
+st.markdown(
+    "참여 인력: 김성훈, 이호현, 이충성, 정지영, 김세훈, 정희진, 최영돈, 류제완, 이소령, 김학준, 김용섭, 이아론, 추가채용(예정) (총 13명, 추가 가능)"
+)
