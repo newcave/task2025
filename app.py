@@ -1,26 +1,25 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 from PIL import Image
 import datetime
 import plotly.graph_objects as go
-import os  # 파일 존재 여부 확인을 위해 os 모듈 추가
+import os
 
-
-# --- 페이지 설정 ---
+# --- Page Config ---
 st.set_page_config(page_title="K-water AI Lab 업무 관리 시스템", layout="wide")
 
-# --- 로고 이미지 ---
-try:
-    im = Image.open("AI_Lab_logo.jpg")  # AI_Lab_logo.jpg 파일이 같은 경로에 있어야 합니다.
-    st.sidebar.image(im, caption="K-water AI Lab")  # 이미지와 캡션
-except FileNotFoundError:
+# --- Logo (Simplified) ---
+logo_path = "AI_Lab_logo.jpg"
+if os.path.exists(logo_path):
+    im = Image.open(logo_path)
+    st.sidebar.image(im, caption="K-water AI Lab")
+else:
     st.sidebar.write("Logo image not found.")
 
-# --- 제목 ---
+# --- Title ---
 st.title("K-water AI Lab 업무 관리 시스템")
 
-# --- 연구원 정보 (하드코딩, 추후 DB 연동) ---
+# --- Members and Task Types (Consider using a config file later) ---
 members = {
     "김성훈": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
     "이호현": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
@@ -37,95 +36,75 @@ members = {
     "추가채용(예정)": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
 }
 
-# --- Task 유형 (하드코딩, 설정 페이지에서 관리하도록 개선 가능)---
 task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"]
 
+# --- Data Loading (CSV) ---
+DATA_FILE = "tasks.csv"
 
-# --- 데이터 저장 (CSV 파일 사용) ---
-DATA_FILE = "tasks.csv"  # CSV 파일 이름
+def load_data():
+    if os.path.exists(DATA_FILE):
+        return pd.read_csv(DATA_FILE)
+    else:
+        return pd.DataFrame()
 
-# CSV 파일에서 데이터 로드 (파일이 없으면 빈 DataFrame 생성)
-if os.path.exists(DATA_FILE):
-    tasks_df = pd.read_csv(DATA_FILE)
-    # DataFrame을 dictionary list로 변환
-    tasks = tasks_df.to_dict('records')
-else:
-    tasks = []
-    tasks_df = pd.DataFrame()
+tasks_df = load_data()
 
 
-
-# --- 사이드바 (메뉴) ---
+# --- Sidebar ---
 with st.sidebar:
     st.header("메뉴")
     menu = st.radio("선택", ["업무 현황", "업무 추가", "관리자 설정(예정)"])
-    # 그래프 및 테이블 표시 여부 체크박스
-    show_graph = st.checkbox("현황 그래프 표시", value=True)  # 기본값 True
+    show_graph = st.checkbox("현황 그래프 표시", value=True)
     show_table = st.checkbox("현황 테이블 표시", value=True)
 
+# --- Main Content ---
 
-# --- 업무 현황 페이지 ---
 if menu == "업무 현황":
     st.subheader("업무 현황 대시보드")
 
-    # 전체 업무 현황 테이블 (사이드바 체크 여부에 따라 표시)
-    if show_table:
-        if not tasks_df.empty:  # DataFrame이 비어있지 않을 때만 표시
-            st.subheader("전체 업무 목록")
-            st.dataframe(tasks_df)
-        else:
-            st.write("등록된 업무가 없습니다.")
+    if show_table and not tasks_df.empty:
+        st.subheader("전체 업무 목록")
+        st.dataframe(tasks_df)
+    elif show_table:
+        st.write("등록된 업무가 없습니다.")
 
-    # 개인별 업무 현황 그래프 (사이드바 체크 여부에 따라 표시)
-    if show_graph:
-        if not tasks_df.empty:
-            st.subheader("개인별 업무 현황 그래프")
+    if show_graph and not tasks_df.empty:
+        st.subheader("개인별 업무 현황 그래프")
 
-            # 데이터 준비 (개인별 목표 건수, 진행/완료 건수)
-            member_names = list(members.keys())
-            target_counts = []  # 개인별 목표 건수
-            in_progress_counts = []  # 진행 중 건수
-            completed_counts = []  # 완료 건수
+        member_names = list(members.keys())
+        target_counts = []
+        in_progress_counts = []
+        completed_counts = []
 
-            for member in member_names:
-                member_tasks = tasks_df[tasks_df["담당자"] == member]
-                target_counts.append(len(member_tasks))  # 총 개수를 목표로 설정
-                in_progress_counts.append(
-                    member_tasks[member_tasks["상태"] == "진행 중"].shape[0]
-                )  # shape[0]는 행의 개수
-                completed_counts.append(
-                    member_tasks[member_tasks["상태"] == "완료"].shape[0]
-                )
+        for member in member_names:
+            member_tasks = tasks_df[tasks_df["담당자"] == member]
+            target_counts.append(len(member_tasks))
+            in_progress_counts.append(member_tasks[member_tasks["상태"] == "진행 중"].shape[0])
+            completed_counts.append(member_tasks[member_tasks["상태"] == "완료"].shape[0])
 
-            # Plotly 그래프 생성
-            fig = go.Figure(
-                data=[
-                    go.Bar(name="목표", x=member_names, y=target_counts),
-                    go.Bar(name="진행 중", x=member_names, y=in_progress_counts),
-                    go.Bar(name="완료", x=member_names, y=completed_counts),
-                ]
-            )
-            # 레이아웃 설정
-            fig.update_layout(barmode="group", xaxis_title="연구원", yaxis_title="업무 건수")
-            st.plotly_chart(fig)
+        fig = go.Figure(
+            data=[
+                go.Bar(name="목표", x=member_names, y=target_counts),
+                go.Bar(name="진행 중", x=member_names, y=in_progress_counts),
+                go.Bar(name="완료", x=member_names, y=completed_counts),
+            ]
+        )
+        fig.update_layout(barmode="group", xaxis_title="연구원", yaxis_title="업무 건수")
+        st.plotly_chart(fig)
 
-        else:
-            st.write("등록된 업무가 없습니다.")
+    elif show_graph:
+        st.write("등록된 업무가 없습니다.")
 
-    # 개인별 업무 현황 테이블 (사이드바 체크와 관계없이 항상 표시)
     st.subheader("개인별 업무 목록")
     if not tasks_df.empty:
         for member in members:
             member_tasks_df = tasks_df[tasks_df["담당자"] == member]
             if not member_tasks_df.empty:
                 st.write(f"**{member}**")
-                st.dataframe(member_tasks_df[["업무 제목", "업무 유형", "마감일", "상태"]])  # 필요한 열만 표시
-
+                st.dataframe(member_tasks_df[["업무 제목", "업무 유형", "마감일", "상태"]])
     else:
         st.write("등록된 업무가 없습니다.")
 
-
-# --- 업무 추가 페이지 ---
 elif menu == "업무 추가":
     st.subheader("신규 업무 등록")
 
@@ -139,11 +118,9 @@ elif menu == "업무 추가":
 
         submitted = st.form_submit_button("업무 추가")
         if submitted:
-            # 입력값 검증 (필수 입력 항목 확인)
             if not task_name or not assigned_member or not due_date:
                 st.error("필수 입력 항목을 모두 채워주세요.")
             else:
-                # 데이터 저장 (딕셔너리 생성)
                 new_task = {
                     "업무 제목": task_name,
                     "업무 유형": task_type,
@@ -154,26 +131,17 @@ elif menu == "업무 추가":
                     "등록일": datetime.date.today().strftime("%Y-%m-%d"),
                 }
 
-                # tasks 리스트에 추가
-                tasks.append(new_task)
-                
-                # 딕셔너리 리스트를 DataFrame으로 변환
-                tasks_df = pd.DataFrame(tasks)
-
-                # CSV 파일로 저장
+                # Append to DataFrame and save
+                tasks_df = pd.concat([tasks_df, pd.DataFrame([new_task])], ignore_index=True)
                 tasks_df.to_csv(DATA_FILE, index=False)
+                st.success("업무가 성공적으로 추가되었습니다.")  # Show success message
+                # NO st.experimental_rerun() HERE!
 
-                st.success("업무가 성공적으로 추가되었습니다.")
-                st.experimental_rerun()  # 페이지 새로고침
 
-
-# --- 관리자 설정 페이지 (예정) ---
 elif menu == "관리자 설정(예정)":
     st.subheader("관리자 설정")
     st.write("추후 개발 예정")
 
-
-# --- 하단: K-water AI LAB 정보 ---
 st.markdown("---")
 st.markdown("**K-water AI LAB**")
 st.markdown(
