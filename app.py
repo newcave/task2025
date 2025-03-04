@@ -45,7 +45,7 @@ DATA_FILE = "tasks.csv"
 
 def load_data():
     if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
+        return pd.read_csv(DATA_FILE, encoding='utf-8')  # UTF-8 인코딩 명시
     else:
         return pd.DataFrame()
 
@@ -55,7 +55,7 @@ tasks_df = load_data()
 # --- Sidebar ---
 with st.sidebar:
     st.header("메뉴")
-    menu = st.radio("선택", ["업무 현황", "업무 추가", "데이터 업로드", "관리자 설정(예정)"])  # Added "데이터 업로드"
+    menu = st.radio("선택", ["업무 현황", "업무 추가", "데이터 업로드", "관리자 설정(예정)"])
     show_graph = st.checkbox("현황 그래프 표시", value=True)
     show_table = st.checkbox("현황 테이블 표시", value=True)
 
@@ -155,7 +155,7 @@ elif menu == "데이터 업로드":
     if uploaded_file is not None:
         try:
             # Read the uploaded CSV file
-            uploaded_df = pd.read_csv(uploaded_file)
+            uploaded_df = pd.read_csv(uploaded_file, encoding='utf-8') # UTF-8 인코딩 명시
 
             # Validate the uploaded file (check for required columns)
             required_columns = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
@@ -165,7 +165,7 @@ elif menu == "데이터 업로드":
                 # Confirm overwrite with a selectbox
                 overwrite = st.selectbox("데이터 처리 방법", ["기존 데이터에 추가", "기존 데이터 덮어쓰기"])
 
-                if st.button("데이터 업로드"):  # Use a regular button
+                if st.button("데이터 업로드"):
                     if overwrite == "기존 데이터에 추가":
                          # Append the uploaded data to the existing data
                         tasks_df = pd.concat([tasks_df, uploaded_df], ignore_index=True)
