@@ -4,8 +4,7 @@ from PIL import Image
 import datetime
 import plotly.graph_objects as go
 import os
-import io  # Import the io module
-
+import io
 
 # --- Page Config ---
 st.set_page_config(page_title="K-water AI Lab 업무 관리 Tool", layout="wide")
@@ -21,7 +20,7 @@ else:
 # --- Title ---
 st.title("K-water AI Lab 업무 관리 시스템")
 
-# --- Members and Task Types (Consider using a config file later) ---
+# --- Members and Task Types ---
 members = {
     "김성훈": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
     "이호현": ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"],
@@ -42,10 +41,12 @@ task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논
 
 # --- Data Loading (CSV) ---
 DATA_FILE = "tasks.csv"
+REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
+
 
 def load_data():
     if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE, encoding='utf-8')  # UTF-8 인코딩 명시
+        return pd.read_csv(DATA_FILE, encoding='utf-8')
     else:
         return pd.DataFrame()
 
@@ -59,7 +60,7 @@ with st.sidebar:
     show_graph = st.checkbox("현황 그래프 표시", value=True)
     show_table = st.checkbox("현황 테이블 표시", value=True)
 
-    # CSV Download Button (in the sidebar)
+    # CSV Download Button
     if not tasks_df.empty:
         csv = tasks_df.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -83,7 +84,6 @@ if menu == "업무 현황":
 
     if show_graph and not tasks_df.empty:
         st.subheader("개인별 업무 현황 그래프")
-
         member_names = list(members.keys())
         target_counts = []
         in_progress_counts = []
@@ -108,19 +108,19 @@ if menu == "업무 현황":
     elif show_graph:
         st.write("등록된 업무가 없습니다.")
 
+
     st.subheader("개인별 업무 목록")
     if not tasks_df.empty:
         for member in members:
             member_tasks_df = tasks_df[tasks_df["담당자"] == member]
             if not member_tasks_df.empty:
                 st.write(f"**{member}**")
-                st.dataframe(member_tasks_df[["업무 제목", "업무 유형", "마감일", "상태"]])
+                st.dataframe(member_tasks_df[REQUIRED_COLUMNS]) # 개인별 목록에도 필수 컬럼만 표시
     else:
         st.write("등록된 업무가 없습니다.")
 
 elif menu == "업무 추가":
     st.subheader("신규 업무 등록")
-
     with st.form("task_form"):
         task_name = st.text_input("업무 제목", max_chars=100)
         task_type = st.selectbox("업무 유형", task_types)
@@ -145,8 +145,9 @@ elif menu == "업무 추가":
                 }
 
                 tasks_df = pd.concat([tasks_df, pd.DataFrame([new_task])], ignore_index=True)
-                tasks_df.to_csv(DATA_FILE, index=False)
+                tasks_df.to_csv(DATA_FILE, index=False, encoding='utf-8')
                 st.success("업무가 성공적으로 추가되었습니다.")
+
 
 elif menu == "데이터 업로드":
     st.subheader("데이터 업로드")
@@ -154,33 +155,37 @@ elif menu == "데이터 업로드":
 
     if uploaded_file is not None:
         try:
-            # Read the uploaded CSV file
-            uploaded_df = pd.read_csv(uploaded_file, encoding='utf-8') # UTF-8 인코딩 명시
+            # Read the uploaded CSV file, handling missing columns
+            uploaded_df = pd.read_csv(uploaded_file, encoding='utf-8')
 
-            # Validate the uploaded file (check for required columns)
-            required_columns = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
-            if not all(col in uploaded_df.columns for col in required_columns):
-                st.error(f"업로드된 파일에 필요한 컬럼이 없습니다. 다음 컬럼들이 필요합니다: {', '.join(required_columns)}")
-            else:
-                # Confirm overwrite with a selectbox
-                overwrite = st.selectbox("데이터 처리 방법", ["기존 데이터에 추가", "기존 데이터 덮어쓰기"])
+            # Check for missing columns and add them with default values
+            for col in REQUIRED_COLUMNS:
+                if col not in uploaded_df.columns:
+                    if col == "업무 유형":
+                        uploaded_df[col] = "기타 업무지원"  # Default task type
+                    elif col == "마감일":
+                        uploaded_df[col] = "2024-06-30"  # Default due date
+                    elif col == "상태":
+                        uploaded_df[col] = "진행 중"  # Default status
+                    elif col == "등록일":
+                        uploaded_df[col] = datetime.date.today().strftime("%Y-%m-%d") # Default date
+                    else:
+                        uploaded_df[col] = ""  # Default empty string for other missing columns
 
-                if st.button("데이터 업로드"):
-                    if overwrite == "기존 데이터에 추가":
-                         # Append the uploaded data to the existing data
-                        tasks_df = pd.concat([tasks_df, uploaded_df], ignore_index=True)
-                    else: # "기존 데이터 덮어쓰기"
-                        # Overwrite the existing data with the uploaded data
-                        tasks_df = uploaded_df
+            # Confirm overwrite with a selectbox
+            overwrite = st.selectbox("데이터 처리 방법", ["기존 데이터에 추가", "기존 데이터 덮어쓰기"])
 
-                    # Save the updated DataFrame to the CSV file
-                    tasks_df.to_csv(DATA_FILE, index=False)
-                    st.success("데이터가 성공적으로 업로드되었습니다.")
+            if st.button("데이터 업로드"):
+                if overwrite == "기존 데이터에 추가":
+                    tasks_df = pd.concat([tasks_df, uploaded_df[REQUIRED_COLUMNS]], ignore_index=True)
+                else:
+                    tasks_df = uploaded_df[REQUIRED_COLUMNS]
+
+                tasks_df.to_csv(DATA_FILE, index=False, encoding='utf-8')
+                st.success("데이터가 성공적으로 업로드되었습니다.")
 
         except Exception as e:
             st.error(f"파일 업로드 중 오류 발생: {e}")
-
-
 
 elif menu == "관리자 설정(예정)":
     st.subheader("관리자 설정")
