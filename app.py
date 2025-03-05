@@ -8,10 +8,10 @@ import io
 import subprocess
 
 # --- GitHub Repository Information ---
-GITHUB_REPO_OWNER = "newcave"
-GITHUB_REPO_NAME = "task2025"
+GITHUB_REPO_OWNER = "newcave"  # GitHub 사용자 이름
+GITHUB_REPO_NAME = "task2025"  # GitHub 저장소 이름
 GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}"
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Streamlit Secrets에서 GitHub 토큰.  Secrets 설정 확인!
 DATA_FILE = "tasks.csv"
 REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
 
@@ -19,7 +19,7 @@ REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", 
 st.set_page_config(page_title="K-water AI Lab 업무 관리 Tool", layout="wide")
 
 # --- Logo (Simplified) ---
-logo_path = "AI_Lab_logo.jpg"
+logo_path = "AI_Lab_logo.jpg"  # 실제 이미지 파일 경로로 바꿔주세요.
 if os.path.exists(logo_path):
     im = Image.open(logo_path)
     st.sidebar.image(im, caption="K-water AI Lab")
@@ -58,12 +58,12 @@ def load_data_from_github():
         return df
     except Exception as e:
         st.error(f"GitHub에서 데이터 로드 중 오류 발생: {e}")
-        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)  # 빈 DataFrame 반환
 
 
 # --- Data Saving Function (to GitHub) ---
 def save_data_to_github(df, commit_message="Update data"):
-    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다."""
+    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (HTTPS 사용)"""
     try:
         # CSV 파일로 변환 (메모리 내)
         csv_data = df.to_csv(index=False, encoding='utf-8').encode('utf-8')
@@ -75,25 +75,26 @@ def save_data_to_github(df, commit_message="Update data"):
         check_result = subprocess.run(check_remote_cmd, capture_output=True, text=True)
 
         commands = [
-            ["git", "config", "--global", "user.email", "your_email@example.com"],  # 실제 이메일로 변경
-            ["git", "config", "--global", "user.name", "Your Name"],  # 실제 이름으로 변경
+            ["git", "config", "--global", "user.email", "your_email@example.com"],  # 실제 이메일
+            ["git", "config", "--global", "user.name", "Your Name"],  # 실제 이름
             ["git", "init"],
         ]
 
-        # origin이 없으면 추가, 있으면 아무것도 안함.
-        if check_result.returncode != 0:  # origin이 없으면 (returncode가 0이 아님)
-              commands.append(["git", "remote", "add", "origin", GITHUB_REPO_URL])
+        # origin이 없으면 추가
+        if check_result.returncode != 0:
+            commands.append(["git", "remote", "add", "origin", GITHUB_REPO_URL])
 
         commands += [
-            # 토큰을 사용하여 인증
             ["git", "fetch", "origin"],
             ["git", "checkout", "main"],
-            ["git", "pull", "origin", "main"],
+            ["git", "pull", "origin", "main"],  # HTTPS pull
             [f"echo '{csv_data.decode('utf-8')}' > {DATA_FILE}"],
             ["git", "add", DATA_FILE],
             ["git", "commit", "-m", commit_message],
-            [f"git push --force https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git main"],
+            # HTTPS push (토큰 사용) - 이 부분이 정확한지 확인!
+            [f"git push https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git main"],
         ]
+
         for cmd in commands:
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode != 0:
@@ -207,7 +208,7 @@ elif menu == "업무 추가":
                     st.success("업무가 성공적으로 추가되었습니다.")
                 else:
                     st.error("GitHub 저장에 실패했습니다.")
-                st.rerun()  # 수정된 부분
+                st.rerun()  # st.experimental_rerun() -> st.rerun()
 
 
 elif menu == "데이터 업로드":
@@ -243,7 +244,7 @@ elif menu == "데이터 업로드":
                     st.success("데이터가 성공적으로 업로드되었습니다.")
                 else:
                     st.error("GitHub 저장에 실패했습니다.")
-                st.rerun()  # 수정된 부분
+                st.rerun()  # st.experimental_rerun() -> st.rerun()
 
         except Exception as e:
             st.error(f"파일 업로드 중 오류 발생: {e}")
