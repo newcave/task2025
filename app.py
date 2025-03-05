@@ -80,7 +80,7 @@ if not tasks_df.empty:
 
 # --- Data Saving Function (to GitHub) ---
 def save_data_to_github(df, commit_message="Update data"):
-    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다."""
+    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋 및 Push합니다."""
     try:
         # CSV 파일로 변환
         csv_data = df.to_csv(index=False, encoding='utf-8')
@@ -107,60 +107,24 @@ def save_data_to_github(df, commit_message="Update data"):
             ["git", "-C", repo_dir, "config", "user.name", "Your Name"],  # 실제 GitHub 사용자 이름 입력
             ["git", "-C", repo_dir, "add", DATA_FILE],
             ["git", "-C", repo_dir, "commit", "-m", commit_message],
-            ["git", "-C", repo_dir, "push", "origin", "main"],  # 🔹 변경: push URL 직접 지정
         ]
 
         for cmd in commands:
             result = subprocess.run(cmd, capture_output=True, text=True)
             st.write(f"Executing command: {cmd}, Result: {result}")  # 디버깅 로그 출력
-            if result.returncode != 0:
-                st.error(f"❌ Git 명령어 실행 중 오류 발생: {result.stderr}")
-                return False
 
-        st.success("✅ GitHub에 성공적으로 저장되었습니다.")
-        return True
+            # ✅ "nothing to commit" 오류 방지 처리
+            if "nothing to commit" in result.stdout:
+                st.warning("⚠️ 변경 사항이 없으므로 Push만 진행합니다.")
 
-    except Exception as e:
-        st.error(f"❌ GitHub 저장 중 오류 발생: {e}")
-        return False
-    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다."""
-    try:
-        # CSV 파일로 변환
-        csv_data = df.to_csv(index=False, encoding='utf-8')
-
-        # 로컬 임시 디렉토리에 저장소 클론 (또는 기존 저장소 사용)
-        repo_dir = "/tmp/task2025_repo"
-        if not os.path.exists(repo_dir):
-            subprocess.run(["git", "clone", GITHUB_REPO_URL, repo_dir], check=True, capture_output=True, text=True)
+        # ✅ 기존에 Push되지 않은 커밋이 있는지 확인 후 Push 실행
+        push_result = subprocess.run(["git", "-C", repo_dir, "push", "origin", "main"], capture_output=True, text=True)
+        if push_result.returncode == 0:
+            st.success("✅ GitHub에 성공적으로 저장되었습니다.")
         else:
-            subprocess.run(["git", "-C", repo_dir, "pull"], check=True, capture_output=True, text=True)
+            st.error(f"❌ Git Push 실패: {push_result.stderr}")
+            return False
 
-        # CSV 파일 저장
-        file_path = os.path.join(repo_dir, DATA_FILE)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(csv_data)
-
-        # GitHub 원격 URL을 토큰 포함한 형태로 직접 설정
-        remote_url = f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git"
-        subprocess.run(["git", "-C", repo_dir, "remote", "set-url", "origin", remote_url], check=True, capture_output=True, text=True)
-
-        # Git 명령어 실행 (subprocess)
-        commands = [
-            ["git", "-C", repo_dir, "config", "user.email", "your_email@example.com"],  # 실제 이메일 입력
-            ["git", "-C", repo_dir, "config", "user.name", "Your Name"],  # 실제 GitHub 사용자 이름 입력
-            ["git", "-C", repo_dir, "add", DATA_FILE],
-            ["git", "-C", repo_dir, "commit", "-m", commit_message],
-            ["git", "-C", repo_dir, "push", remote_url, "main"],  # 🔹 변경: push URL 직접 지정
-        ]
-
-        for cmd in commands:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            st.write(f"Executing command: {cmd}, Result: {result}")  # 디버깅 로그 출력
-            if result.returncode != 0:
-                st.error(f"❌ Git 명령어 실행 중 오류 발생: {result.stderr}")
-                return False
-
-        st.success("✅ GitHub에 성공적으로 저장되었습니다.")
         return True
 
     except Exception as e:
@@ -168,6 +132,7 @@ def save_data_to_github(df, commit_message="Update data"):
         return False
 
 
+##########################################################
 
 # --- Data Loading ---
 # 초기 데이터 로드 (앱 시작 시)
