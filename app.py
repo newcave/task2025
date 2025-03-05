@@ -52,26 +52,50 @@ task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논
 
 
 # --- Data Loading Function (from GitHub) ---
-def load_data_from_github():
-    """GitHub 저장소에서 CSV 파일을 불러옵니다."""
+def save_data_to_github(df, commit_message="Update data"):
+    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (HTTPS, subprocess 사용)"""
     try:
-        url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{DATA_FILE}"
-        df = pd.read_csv(url, encoding='utf-8')
-        return df
+        # CSV 파일로 변환
+        csv_data = df.to_csv(index=False, encoding='utf-8')
+
+        # 로컬 임시 디렉토리에 저장소 클론 (또는 기존 저장소 사용)
+        repo_dir = "/tmp/task2025_repo"
+        if not os.path.exists(repo_dir):
+            # HTTPS URL로 클론
+            subprocess.run(["git", "clone", GITHUB_REPO_URL, repo_dir], check=True, capture_output=True, text=True)
+        else:
+            # 기존 저장소 pull
+             subprocess.run(["git", "-C", repo_dir, "pull"], check=True, capture_output=True, text=True)
+
+        # CSV 파일 쓰기
+        file_path = os.path.join(repo_dir, DATA_FILE)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(csv_data)
+
+        # Git 명령어 실행 (subprocess)
+        commands = [
+            ["git", "-C", repo_dir, "config", "user.email", "your_email@example.com"],  # 실제 이메일
+            ["git", "-C", repo_dir, "config", "user.name", "Your Name"],  # 실제 이름
+            ["git", "-C", repo_dir, "add", DATA_FILE],
+            ["git", "-C", repo_dir, "commit", "-m", commit_message],
+            # HTTPS URL과 토큰을 사용한 push, --porcelain 제거, origin 추가
+            ["git", "-C", repo_dir, "push", f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git", "main"],
+        ]
+
+        for cmd in commands:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            st.write(f"Executing command: {cmd}, Result: {result}") # 디버깅
+            if result.returncode != 0:
+                st.error(f"Git 명령어 실행 중 오류 발생: {result.stderr}")
+                return False
+
+        return True
+
     except Exception as e:
-        st.error(f"GitHub에서 데이터 로드 중 오류 발생: {e}")
-        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+        st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
+        return False
 
 
-# --- Data Saving Function (to GitHub) ---
-GitHub 저장
-커밋 메시지
-
-Update data from Streamlit app
-
-GitHub에 데이터 저장 중 오류 발생: Cmd('git') failed due to: exit code(128) cmdline: git push --porcelain — origin stderr: 'fatal: could not read Password for 'https://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@github.com': No such device or address'
-
-GitHub 저장에 실패했습니다.
 # --- Data Loading ---
 # 초기 데이터 로드 (앱 시작 시)
 tasks_df = load_data_from_github()
