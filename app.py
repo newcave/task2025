@@ -73,6 +73,10 @@ def load_data_from_github():
 # --- 데이터 로딩 시 로딩 메시지 표시 ---
 tasks_df = load_data_from_github()
 
+
+# --- 데이터 로딩 시 로딩 메시지 표시 ---
+tasks_df = load_data_from_github()
+
 # --- Data Saving Function (to GitHub) ---
 def save_data_to_github(df, commit_message="Update data"):
     """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (HTTPS, subprocess 사용)"""
