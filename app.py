@@ -80,7 +80,7 @@ if not tasks_df.empty:
 
 # --- Data Saving Function (to GitHub) ---
 def save_data_to_github(df, commit_message="Update data"):
-    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (HTTPS, subprocess 사용)"""
+    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다."""
     try:
         # CSV 파일로 변환
         csv_data = df.to_csv(index=False, encoding='utf-8')
@@ -88,38 +88,40 @@ def save_data_to_github(df, commit_message="Update data"):
         # 로컬 임시 디렉토리에 저장소 클론 (또는 기존 저장소 사용)
         repo_dir = "/tmp/task2025_repo"
         if not os.path.exists(repo_dir):
-            # HTTPS URL로 클론
             subprocess.run(["git", "clone", GITHUB_REPO_URL, repo_dir], check=True, capture_output=True, text=True)
         else:
-            # 기존 저장소 pull
-             subprocess.run(["git", "-C", repo_dir, "pull"], check=True, capture_output=True, text=True)
+            subprocess.run(["git", "-C", repo_dir, "pull"], check=True, capture_output=True, text=True)
 
-        # CSV 파일 쓰기
+        # CSV 파일 저장
         file_path = os.path.join(repo_dir, DATA_FILE)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(csv_data)
 
+        # GitHub 인증 문제 해결: remote URL을 올바르게 설정
+        remote_url = f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git"
+        subprocess.run(["git", "-C", repo_dir, "remote", "set-url", "origin", remote_url], check=True, capture_output=True, text=True)
+
         # Git 명령어 실행 (subprocess)
         commands = [
-            ["git", "-C", repo_dir, "config", "user.email", "your_email@example.com"],  # 실제 이메일
-            ["git", "-C", repo_dir, "config", "user.name", "Your Name"],  # 실제 이름
+            ["git", "-C", repo_dir, "config", "user.email", "your_email@example.com"],  # 실제 이메일 입력
+            ["git", "-C", repo_dir, "config", "user.name", "Your Name"],  # 실제 GitHub 사용자 이름 입력
             ["git", "-C", repo_dir, "add", DATA_FILE],
             ["git", "-C", repo_dir, "commit", "-m", commit_message],
-            # HTTPS URL과 토큰을 사용한 push, --porcelain 제거, origin 추가
-            ["git", "-C", repo_dir, "push", f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git", "main"],
+            ["git", "-C", repo_dir, "push", "origin", "main"],  # 변경된 remote URL 사용
         ]
 
         for cmd in commands:
             result = subprocess.run(cmd, capture_output=True, text=True)
-            st.write(f"Executing command: {cmd}, Result: {result}") # 디버깅
+            st.write(f"Executing command: {cmd}, Result: {result}")  # 디버깅 로그 출력
             if result.returncode != 0:
-                st.error(f"Git 명령어 실행 중 오류 발생: {result.stderr}")
+                st.error(f"❌ Git 명령어 실행 중 오류 발생: {result.stderr}")
                 return False
 
+        st.success("✅ GitHub에 성공적으로 저장되었습니다.")
         return True
 
     except Exception as e:
-        st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
+        st.error(f"❌ GitHub 저장 중 오류 발생: {e}")
         return False
 
 
