@@ -55,7 +55,7 @@ task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논
 def load_data_from_github():
     """GitHub 저장소에서 CSV 파일을 불러옵니다. (requests 사용)"""
     try:
-        url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{DATA_FILE}"
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/{DATA_FILE}"
         headers = {"Authorization": f"token {GITHUB_TOKEN}"}  # 헤더에 토큰 추가 (private repo인 경우)
         response = requests.get(url, headers=headers)
         response.raise_for_status()  # HTTP 오류 발생 시 예외 발생 (4xx, 5xx)
