@@ -88,14 +88,10 @@ def save_data_to_github(df, commit_message="Update data"):
         repo.index.add([DATA_FILE])
         repo.index.commit(commit_message)
 
-        # origin = repo.remote(name="origin")  # remote 'origin'을 가져옵니다.
-        # origin.push()
-
         # HTTPS + 토큰 인증
         origin = repo.remote(name='origin')
         origin.set_url(f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git")
         origin.push()
-
 
         st.write("GitHub push successful!")  # 디버깅
         return True
@@ -103,7 +99,7 @@ def save_data_to_github(df, commit_message="Update data"):
     except Exception as e:
         st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
         return False
-        
+
 # --- Data Loading ---
 # 초기 데이터 로드 (앱 시작 시)
 tasks_df = load_data_from_github()
