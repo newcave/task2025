@@ -29,7 +29,7 @@ else:
     st.sidebar.write("Logo image not found.")
 
 # --- Title ---
-st.title("K-water AI Lab 업무 관리 시스템")
+st.title("K-water AI Lab 업무 관리 Tool")
 
 # --- Members and Task Types ---
 members = {
