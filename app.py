@@ -60,29 +60,23 @@ def load_data_from_github():
         df = pd.read_csv(url, encoding='utf-8')
 
         if df.empty:
-            return pd.DataFrame(columns=REQUIRED_COLUMNS), f"⚠️ {DATA_FILE} 파일이 비어 있습니다."
+            st.warning(f"⚠️ {DATA_FILE} 파일이 비어 있습니다.")
+            return pd.DataFrame(columns=REQUIRED_COLUMNS)
 
-        return df, None  # 정상 로드 시 오류 메시지 없음
+        return df  # 정상적으로 로드된 경우 DataFrame만 반환
     except Exception as e:
-        return pd.DataFrame(columns=REQUIRED_COLUMNS), f"❌ {DATA_FILE} 로드 실패: {e}"
+        st.error(f"❌ {DATA_FILE} 로드 실패: {e}")
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
 
 # --- 데이터 로드 ---
 with st.spinner(f"{DATA_FILE} 불러오는 중..."):
-    tasks_df, error_message = load_data_from_github()
+    tasks_df = load_data_from_github()  # 튜플이 아니라 DataFrame만 반환
 
 # --- 메시지 출력 (중복 방지) ---
-if error_message:
-    st.error(error_message)
-else:
+if not tasks_df.empty:
     st.success(f"✅ {DATA_FILE} 로드 완료!")
 
-
-# --- 데이터 로딩 시 로딩 메시지 표시 ---
-tasks_df = load_data_from_github()
-
-
-# --- 데이터 로딩 시 로딩 메시지 표시 ---
-tasks_df = load_data_from_github()
+##############################################
 
 # --- Data Saving Function (to GitHub) ---
 def save_data_to_github(df, commit_message="Update data"):
