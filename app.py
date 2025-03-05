@@ -11,7 +11,6 @@ import subprocess
 GITHUB_REPO_OWNER = "newcave"  # GitHub 사용자 이름
 GITHUB_REPO_NAME = "task2025"  # GitHub 저장소 이름
 GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}"
-GITHUB_TOKEN = "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"
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Streamlit Secrets에서 GitHub 토큰 가져오기
 DATA_FILE = "tasks.csv"
 REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
@@ -20,7 +19,7 @@ REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", 
 st.set_page_config(page_title="K-water AI Lab 업무 관리 Tool", layout="wide")
 
 # --- Logo (Simplified) ---
-logo_path = "AI_Lab_logo.jpg"  # 실제 이미지 파일 경로로 바꿔주세요.
+logo_path = "AI_Lab_logo.jpg"  # 실제 이미지 파일 경로
 if os.path.exists(logo_path):
     im = Image.open(logo_path)
     st.sidebar.image(im, caption="K-water AI Lab")
@@ -59,7 +58,7 @@ def load_data_from_github():
         return df
     except Exception as e:
         st.error(f"GitHub에서 데이터 로드 중 오류 발생: {e}")
-        return pd.DataFrame(columns=REQUIRED_COLUMNS)  # 빈 DataFrame 반환
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
 
 
 # --- Data Saving Function (to GitHub) ---
@@ -88,11 +87,11 @@ def save_data_to_github(df, commit_message="Update data"):
         commands += [
             ["git", "fetch", "origin"],
             ["git", "checkout", "main"],
-            ["git", "pull", "origin", "main"],  # HTTPS pull
+            ["git", "pull", "origin", "main"],
             [f"echo '{csv_data.decode('utf-8')}' > {DATA_FILE}"],
             ["git", "add", DATA_FILE],
             ["git", "commit", "-m", commit_message],
-            # HTTPS push (토큰 사용) - 이 부분이 정확한지 확인!
+            # HTTPS push (토큰 사용)
             [f"git push https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git main"],
         ]
 
@@ -101,16 +100,14 @@ def save_data_to_github(df, commit_message="Update data"):
             if result.returncode != 0:
                 st.error(f"Git 명령어 실행 중 오류 발생: {result.stderr}")
                 return False
-
         return True
 
     except Exception as e:
         st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
         return False
 
-
-
 # --- Data Loading ---
+# 초기 데이터 로드 (앱 시작 시)
 tasks_df = load_data_from_github()
 
 
@@ -177,8 +174,6 @@ if menu == "업무 현황":
     else:
         st.write("등록된 업무가 없습니다.")
 
-
-
 elif menu == "업무 추가":
     st.subheader("신규 업무 등록")
     with st.form("task_form"):
@@ -203,13 +198,18 @@ elif menu == "업무 추가":
                     "세부 내용": task_details,
                     "등록일": datetime.date.today().strftime("%Y-%m-%d"),
                 }
-
+                # DataFrame에 새 업무 추가
                 tasks_df = pd.concat([tasks_df, pd.DataFrame([new_task])], ignore_index=True)
+
+                # GitHub에 저장
                 if save_data_to_github(tasks_df):
-                    st.success("업무가 성공적으로 추가되었습니다.")
+                    st.success("업무가 성공적으로 추가되었으며, GitHub에 저장되었습니다.")
+                    # GitHub에서 데이터 다시 불러오기 (즉시 반영)
+                    tasks_df = load_data_from_github()
+                    st.rerun() #데이터 로드 후, 화면 갱신
+
                 else:
                     st.error("GitHub 저장에 실패했습니다.")
-                st.rerun()  # st.experimental_rerun() -> st.rerun()
 
 
 elif menu == "데이터 업로드":
@@ -243,9 +243,12 @@ elif menu == "데이터 업로드":
 
                 if save_data_to_github(tasks_df):
                     st.success("데이터가 성공적으로 업로드되었습니다.")
+                    # GitHub에서 데이터 다시 불러오기 (즉시 반영)
+                    tasks_df = load_data_from_github()
+                    st.rerun() #데이터 로드 후, 화면 갱신
+
                 else:
                     st.error("GitHub 저장에 실패했습니다.")
-                st.rerun()  # st.experimental_rerun() -> st.rerun()
 
         except Exception as e:
             st.error(f"파일 업로드 중 오류 발생: {e}")
@@ -256,6 +259,10 @@ elif menu == "GitHub 저장":
     if st.button("GitHub에 저장"):
         if save_data_to_github(tasks_df, commit_message):
             st.success("데이터가 GitHub에 성공적으로 저장되었습니다.")
+            # GitHub에서 데이터 다시 불러오기 (즉시 반영)
+            tasks_df = load_data_from_github()
+            st.rerun()
+
         else:
             st.error("GitHub 저장에 실패했습니다.")
 
