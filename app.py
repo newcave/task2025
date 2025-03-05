@@ -64,42 +64,14 @@ def load_data_from_github():
 
 
 # --- Data Saving Function (to GitHub) ---
-def save_data_to_github(df, commit_message="Update data"):
-    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (GitPython 사용)"""
-    try:
-        # CSV 파일로 변환
-        csv_data = df.to_csv(index=False, encoding='utf-8')
+GitHub 저장
+커밋 메시지
 
-        # 로컬 임시 디렉토리에 저장소 클론 (또는 기존 저장소 사용)
-        repo_dir = "/tmp/task2025_repo"  # 임시 디렉토리 경로
-        if not os.path.exists(repo_dir):
-            repo = git.Repo.clone_from(GITHUB_REPO_URL, repo_dir, branch="main")
-        else:
-            repo = git.Repo(repo_dir)
-            repo.remotes.origin.pull() # pull
+Update data from Streamlit app
 
-        # CSV 파일 쓰기
-        file_path = os.path.join(repo_dir, DATA_FILE)
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(csv_data)
+GitHub에 데이터 저장 중 오류 발생: Cmd('git') failed due to: exit code(128) cmdline: git push --porcelain — origin stderr: 'fatal: could not read Password for 'https://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@github.com': No such device or address'
 
-
-        # 변경 사항 커밋 및 푸시
-        repo.index.add([DATA_FILE])
-        repo.index.commit(commit_message)
-
-        # HTTPS + 토큰 인증
-        origin = repo.remote(name='origin')
-        origin.set_url(f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git")
-        origin.push()
-
-        st.write("GitHub push successful!")  # 디버깅
-        return True
-
-    except Exception as e:
-        st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
-        return False
-
+GitHub 저장에 실패했습니다.
 # --- Data Loading ---
 # 초기 데이터 로드 (앱 시작 시)
 tasks_df = load_data_from_github()
