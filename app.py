@@ -66,46 +66,45 @@ def load_data_from_github():
 def save_data_to_github(df, commit_message="Update data"):
     """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (HTTPS 사용)"""
     try:
-        # CSV 파일로 변환 (메모리 내)
         csv_data = df.to_csv(index=False, encoding='utf-8').encode('utf-8')
 
-        # Git 명령어 실행 (subprocess 사용)
-
-        # remote origin이 이미 존재하는지 확인
         check_remote_cmd = ["git", "remote", "get-url", "origin"]
         check_result = subprocess.run(check_remote_cmd, capture_output=True, text=True)
+        st.write("Check remote result:", check_result)  # 디버깅 출력
 
-        commands = [
-            ["git", "config", "--global", "user.email", "your_email@example.com"],  # 실제 이메일
-            ["git", "config", "--global", "user.name", "Your Name"],  # 실제 이름
-            ["git", "init"],
-        ]
-
-        # origin이 없으면 추가
+        commands = []
         if check_result.returncode != 0:
             commands.append(["git", "remote", "add", "origin", GITHUB_REPO_URL])
 
         commands += [
+            ["git", "config", "user.email", "your_email@example.com"],
+            ["git", "config", "user.name", "Your Name"],
             ["git", "fetch", "origin"],
             ["git", "checkout", "main"],
             ["git", "pull", "origin", "main"],
             [f"echo '{csv_data.decode('utf-8')}' > {DATA_FILE}"],
             ["git", "add", DATA_FILE],
             ["git", "commit", "-m", commit_message],
-            # HTTPS push (토큰 사용)
             [f"git push https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git main"],
         ]
 
         for cmd in commands:
             result = subprocess.run(cmd, capture_output=True, text=True)
+            st.write(f"Executing command: {cmd}, Result: {result}")  # 디버깅 출력
             if result.returncode != 0:
-                st.error(f"Git 명령어 실행 중 오류 발생: {result.stderr}")
+                if cmd[1] == "pull":
+                    st.error(f"Git pull 중 오류 발생: {result.stderr}.  충돌을 해결하고 다시 시도하세요.")
+                else:
+                    st.error(f"Git 명령어 실행 중 오류 발생: {result.stderr}")
                 return False
+
         return True
 
     except Exception as e:
         st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
         return False
+
+
 
 # --- Data Loading ---
 # 초기 데이터 로드 (앱 시작 시)
@@ -207,7 +206,7 @@ elif menu == "업무 추가":
                     st.success("업무가 성공적으로 추가되었으며, GitHub에 저장되었습니다.")
                     # GitHub에서 데이터 다시 불러오기 (즉시 반영)
                     tasks_df = load_data_from_github()
-                    st.rerun() #데이터 로드 후, 화면 갱신
+                    st.rerun()  # 데이터 로드 후, 화면 갱신
 
                 else:
                     st.error("GitHub 저장에 실패했습니다.")
@@ -238,41 +237,4 @@ elif menu == "데이터 업로드":
 
             if st.button("데이터 업로드"):
                 if overwrite == "기존 데이터에 추가":
-                    tasks_df = pd.concat([tasks_df, uploaded_df[REQUIRED_COLUMNS]], ignore_index=True)
-                else:
-                    tasks_df = uploaded_df[REQUIRED_COLUMNS]
-
-                if save_data_to_github(tasks_df):
-                    st.success("데이터가 성공적으로 업로드되었습니다.")
-                    # GitHub에서 데이터 다시 불러오기 (즉시 반영)
-                    tasks_df = load_data_from_github()
-                    st.rerun() #데이터 로드 후, 화면 갱신
-
-                else:
-                    st.error("GitHub 저장에 실패했습니다.")
-
-        except Exception as e:
-            st.error(f"파일 업로드 중 오류 발생: {e}")
-
-elif menu == "GitHub 저장":
-    st.subheader("GitHub 저장")
-    commit_message = st.text_input("커밋 메시지", "Update data from Streamlit app")
-    if st.button("GitHub에 저장"):
-        if save_data_to_github(tasks_df, commit_message):
-            st.success("데이터가 GitHub에 성공적으로 저장되었습니다.")
-            # GitHub에서 데이터 다시 불러오기 (즉시 반영)
-            tasks_df = load_data_from_github()
-            st.rerun()
-
-        else:
-            st.error("GitHub 저장에 실패했습니다.")
-
-elif menu == "관리자 설정(예정)":
-    st.subheader("관리자 설정")
-    st.write("추후 개발 예정")
-
-st.markdown("---")
-st.markdown("**K-water AI LAB**")
-st.markdown(
-    "참여 인력: 김성훈, 이호현, 이충성, 정지영, 김세훈, 정희진, 최영돈, 류제완, 이소령, 김학준, 김용섭, 이아론, 추가채용(예정) (총 13명, 추가 가능)"
-)
+                    tasks_df =
