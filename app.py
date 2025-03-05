@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import os
 import io
 import subprocess
+import git  # GitPython import
 
 # --- GitHub Repository Information ---
 GITHUB_REPO_OWNER = "newcave"  # GitHub 사용자 이름
