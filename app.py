@@ -134,7 +134,7 @@ with st.sidebar:
     st.header("메뉴")
     menu = st.radio("선택", ["업무 현황", "업무 추가", "데이터 업로드", "GitHub 저장", "관리자 설정(예정)"])
     show_graph = st.checkbox("현황 그래프 표시", value=True)
-    show_table = st.checkbox("현황 테이블 표시", value=True)
+    show_table = st.checkbox("현황 테이블 표시", value=False)
 
     # CSV Download Button
     if not tasks_df.empty:
@@ -149,12 +149,6 @@ with st.sidebar:
 # --- Main Content ---
 if menu == "업무 현황":
     st.subheader("업무 현황 대시보드")
-
-    if show_table and not tasks_df.empty:
-        st.subheader("전체 업무 목록")
-        st.dataframe(tasks_df)
-    elif show_table:
-        st.write("등록된 업무가 없습니다.")
 
     if show_graph and not tasks_df.empty:
         st.subheader("개인별 업무 현황 그래프")
@@ -182,6 +176,12 @@ if menu == "업무 현황":
     elif show_graph:
         st.write("등록된 업무가 없습니다.")
 
+    if show_table and not tasks_df.empty:
+        st.subheader("전체 업무 목록")
+        st.dataframe(tasks_df)
+    elif show_table:
+        st.write("등록된 업무가 없습니다.")
+    
     st.subheader("개인별 업무 목록")
     if not tasks_df.empty:
         for member in members:
