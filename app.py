@@ -65,48 +65,39 @@ def load_data_from_github():
 
 # --- Data Saving Function (to GitHub) ---
 def save_data_to_github(df, commit_message="Update data"):
-    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (HTTPS 사용)"""
+    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다. (GitPython 사용)"""
     try:
-        # CSV 파일로 변환 (메모리 내) -> 이 부분은 그대로 둡니다.
-        csv_data = df.to_csv(index=False, encoding='utf-8').encode('utf-8')
+        # CSV 파일로 변환
+        csv_data = df.to_csv(index=False, encoding='utf-8')
 
-        # remote origin이 이미 존재하는지 확인
-        check_remote_cmd = ["git", "remote", "get-url", "origin"]
-        check_result = subprocess.run(check_remote_cmd, capture_output=True, text=True)
-        st.write("Check remote result:", check_result)  # 디버깅 출력
+        # 로컬 임시 디렉토리에 저장소 클론 (또는 기존 저장소 사용)
+        repo_dir = "/tmp/task2025_repo"  # 임시 디렉토리 경로
+        if not os.path.exists(repo_dir):
+            repo = git.Repo.clone_from(GITHUB_REPO_URL, repo_dir, branch="main")
+        else:
+            repo = git.Repo(repo_dir)
+            repo.remotes.origin.pull() # pull
 
-        commands = []
-        if check_result.returncode != 0:
-            commands.append(["git", "remote", "add", "origin", GITHUB_REPO_URL])
-
-        commands += [
-            ["git", "config", "user.email", "your_email@example.com"],  # 실제 이메일
-            ["git", "config", "user.name", "Your Name"],  # 실제 이름
-            ["git", "fetch", "origin"],
-            ["git", "checkout", "main"],
-            ["git", "pull", "origin", "main"],
-            # [f"echo '{csv_data.decode('utf-8')}' > {DATA_FILE}"],  # 이 부분을 수정
-            ["git", "add", DATA_FILE],
-            ["git", "commit", "-m", commit_message],
-            [f"git push https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git main"],
-        ]
+        # CSV 파일 쓰기
+        file_path = os.path.join(repo_dir, DATA_FILE)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(csv_data)
 
 
-        # 임시 파일 생성 및 CSV 데이터 쓰기 (subprocess 전에)
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            f.write(csv_data.decode('utf-8'))
+        # 변경 사항 커밋 및 푸시
+        repo.index.add([DATA_FILE])
+        repo.index.commit(commit_message)
+
+        # origin = repo.remote(name="origin")  # remote 'origin'을 가져옵니다.
+        # origin.push()
+
+        # HTTPS + 토큰 인증
+        origin = repo.remote(name='origin')
+        origin.set_url(f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git")
+        origin.push()
 
 
-        for cmd in commands:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            st.write(f"Executing command: {cmd}, Result: {result}")  # 디버깅 출력
-            if result.returncode != 0:
-                if cmd[1] == "pull":
-                  st.error(f"Git pull 중 오류 발생: {result.stderr}.  충돌을 해결하고 다시 시도하세요.")
-                else:
-                  st.error(f"Git 명령어 실행 중 오류 발생: {result.stderr}")
-                return False
-
+        st.write("GitHub push successful!")  # 디버깅
         return True
 
     except Exception as e:
