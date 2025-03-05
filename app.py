@@ -97,7 +97,7 @@ def save_data_to_github(df, commit_message="Update data"):
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(csv_data)
 
-        # GitHub 인증 문제 해결: remote URL을 올바르게 설정
+        # GitHub 원격 URL을 토큰 포함한 형태로 직접 설정
         remote_url = f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git"
         subprocess.run(["git", "-C", repo_dir, "remote", "set-url", "origin", remote_url], check=True, capture_output=True, text=True)
 
@@ -107,7 +107,7 @@ def save_data_to_github(df, commit_message="Update data"):
             ["git", "-C", repo_dir, "config", "user.name", "Your Name"],  # 실제 GitHub 사용자 이름 입력
             ["git", "-C", repo_dir, "add", DATA_FILE],
             ["git", "-C", repo_dir, "commit", "-m", commit_message],
-            ["git", "-C", repo_dir, "push", "origin", "main"],  # 변경된 remote URL 사용
+            ["git", "-C", repo_dir, "push", remote_url, "main"],  # 🔹 변경: push URL 직접 지정
         ]
 
         for cmd in commands:
