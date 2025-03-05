@@ -68,17 +68,22 @@ def save_data_to_github(df, commit_message="Update data"):
     try:
         csv_data = df.to_csv(index=False, encoding='utf-8').encode('utf-8')
 
+        # remote origin을 HTTPS URL로 강제 변경
+        force_https_cmd = ["git", "remote", "set-url", "origin", GITHUB_REPO_URL]
+        force_https_result = subprocess.run(force_https_cmd, capture_output=True, text=True)
+        st.write("Force HTTPS result:", force_https_result) # 디버깅
+        if force_https_result.returncode != 0:
+            st.error(f"Git remote URL 변경 실패: {force_https_result.stderr}")
+            return False
+
+
         check_remote_cmd = ["git", "remote", "get-url", "origin"]
         check_result = subprocess.run(check_remote_cmd, capture_output=True, text=True)
-        st.write("Check remote result:", check_result)  # 디버깅 출력
+        st.write("Check remote result:", check_result)
 
-        commands = []
-        if check_result.returncode != 0:
-            commands.append(["git", "remote", "add", "origin", GITHUB_REPO_URL])
-
-        commands += [
-            ["git", "config", "user.email", "your_email@example.com"],
-            ["git", "config", "user.name", "Your Name"],
+        commands = [
+            ["git", "config", "user.email", "your_email@example.com"],  # 실제 이메일
+            ["git", "config", "user.name", "Your Name"],  # 실제 이름
             ["git", "fetch", "origin"],
             ["git", "checkout", "main"],
             ["git", "pull", "origin", "main"],
@@ -90,7 +95,7 @@ def save_data_to_github(df, commit_message="Update data"):
 
         for cmd in commands:
             result = subprocess.run(cmd, capture_output=True, text=True)
-            st.write(f"Executing command: {cmd}, Result: {result}")  # 디버깅 출력
+            st.write(f"Executing command: {cmd}, Result: {result}")
             if result.returncode != 0:
                 if cmd[1] == "pull":
                     st.error(f"Git pull 중 오류 발생: {result.stderr}.  충돌을 해결하고 다시 시도하세요.")
@@ -103,8 +108,6 @@ def save_data_to_github(df, commit_message="Update data"):
     except Exception as e:
         st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
         return False
-
-
 
 # --- Data Loading ---
 # 초기 데이터 로드 (앱 시작 시)
