@@ -5,12 +5,21 @@ import datetime
 import plotly.graph_objects as go
 import os
 import io
+import subprocess  # subprocess 모듈 추가: git 명령어 실행을 위해
+
+# --- GitHub Repository Information ---
+GITHUB_REPO_OWNER = "newcave"  # GitHub 사용자 이름
+GITHUB_REPO_NAME = "task2025"  # GitHub 저장소 이름
+GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}"
+GITHUB_TOKEN = st.secrets["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"]  # Streamlit Secrets에서 GitHub 토큰 가져오기
+DATA_FILE = "tasks.csv"
+REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
 
 # --- Page Config ---
 st.set_page_config(page_title="K-water AI Lab 업무 관리 Tool", layout="wide")
 
 # --- Logo (Simplified) ---
-logo_path = "AI_Lab_logo.jpg"
+logo_path = "AI_Lab_logo.jpg"  # 로고 파일 경로 (실제 경로로 변경 필요)
 if os.path.exists(logo_path):
     im = Image.open(logo_path)
     st.sidebar.image(im, caption="K-water AI Lab")
@@ -18,7 +27,7 @@ else:
     st.sidebar.write("Logo image not found.")
 
 # --- Title ---
-st.title("K-water AI Lab 업무 관리 시스템")
+st.title("K-water AI Lab 업무 관리 Tool")
 
 # --- Members and Task Types ---
 members = {
@@ -39,24 +48,64 @@ members = {
 
 task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논문", "IP"]
 
-# --- Data Loading (CSV) ---
-DATA_FILE = "tasks.csv"
-REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
+
+# --- Data Loading Function (from GitHub) ---
+def load_data_from_github():
+    """GitHub 저장소에서 CSV 파일을 불러옵니다."""
+    try:
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{DATA_FILE}"  # main 브랜치 사용
+        df = pd.read_csv(url, encoding='utf-8')
+        return df
+    except Exception as e:
+        st.error(f"GitHub에서 데이터 로드 중 오류 발생: {e}")
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)  # 오류 발생 시 빈 DataFrame 반환
 
 
-def load_data():
-    if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE, encoding='utf-8')
-    else:
-        return pd.DataFrame()
+# --- Data Saving Function (to GitHub) ---
+def save_data_to_github(df, commit_message="Update data"):
+    """데이터프레임을 CSV 파일로 변환하고 GitHub 저장소에 커밋합니다."""
+    try:
+        # CSV 파일로 변환 (메모리 내)
+        csv_data = df.to_csv(index=False, encoding='utf-8').encode('utf-8')
 
-tasks_df = load_data()
+        # Git 명령어 실행 (subprocess 사용)
+        commands = [
+            ["git", "config", "--global", "user.email", "your_email@example.com"],  # 이메일 설정 (실제 이메일로 변경)
+            ["git", "config", "--global", "user.name", "Your Name"],  # 사용자 이름 설정 (실제 이름으로 변경)
+            ["git", "init"],
+            ["git", "remote", "add", "origin", GITHUB_REPO_URL],
+             # 토큰을 사용하여 인증
+            ["git", "fetch", "origin"],
+            ["git", "checkout", "main"],  # 또는 다른 브랜치 이름
+            ["git", "pull", "origin", "main"],
+            [f"echo '{csv_data.decode('utf-8')}' > {DATA_FILE}"],  #따옴표 문제 해결
+            ["git", "add", DATA_FILE],
+            ["git", "commit", "-m", commit_message],
+            [f"git push --force https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git main"], # force
+
+        ]
+
+        for cmd in commands:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                st.error(f"Git 명령어 실행 중 오류 발생: {result.stderr}")
+                return False
+
+        return True
+
+    except Exception as e:
+        st.error(f"GitHub에 데이터 저장 중 오류 발생: {e}")
+        return False
+
+
+# --- Data Loading ---
+tasks_df = load_data_from_github()
 
 
 # --- Sidebar ---
 with st.sidebar:
     st.header("메뉴")
-    menu = st.radio("선택", ["업무 현황", "업무 추가", "데이터 업로드", "관리자 설정(예정)"])
+    menu = st.radio("선택", ["업무 현황", "업무 추가", "데이터 업로드", "GitHub 저장", "관리자 설정(예정)"])
     show_graph = st.checkbox("현황 그래프 표시", value=True)
     show_table = st.checkbox("현황 테이블 표시", value=True)
 
@@ -70,9 +119,7 @@ with st.sidebar:
             mime='text/csv',
         )
 
-
 # --- Main Content ---
-
 if menu == "업무 현황":
     st.subheader("업무 현황 대시보드")
 
@@ -108,16 +155,17 @@ if menu == "업무 현황":
     elif show_graph:
         st.write("등록된 업무가 없습니다.")
 
-
     st.subheader("개인별 업무 목록")
     if not tasks_df.empty:
         for member in members:
             member_tasks_df = tasks_df[tasks_df["담당자"] == member]
             if not member_tasks_df.empty:
                 st.write(f"**{member}**")
-                st.dataframe(member_tasks_df[REQUIRED_COLUMNS]) # 개인별 목록에도 필수 컬럼만 표시
+                st.dataframe(member_tasks_df[REQUIRED_COLUMNS])  # 개인별 목록에도 필수 컬럼만 표시
     else:
         st.write("등록된 업무가 없습니다.")
+
+
 
 elif menu == "업무 추가":
     st.subheader("신규 업무 등록")
@@ -145,8 +193,12 @@ elif menu == "업무 추가":
                 }
 
                 tasks_df = pd.concat([tasks_df, pd.DataFrame([new_task])], ignore_index=True)
-                tasks_df.to_csv(DATA_FILE, index=False, encoding='utf-8')
-                st.success("업무가 성공적으로 추가되었습니다.")
+                # tasks_df.to_csv(DATA_FILE, index=False, encoding='utf-8') # 로컬 저장은 주석처리
+                if save_data_to_github(tasks_df):  # GitHub에 저장
+                    st.success("업무가 성공적으로 추가되었습니다.")
+                else:
+                    st.error("GitHub 저장에 실패했습니다.")  # GitHub 저장 실패 메시지 추가
+                st.experimental_rerun()
 
 
 elif menu == "데이터 업로드":
@@ -168,7 +220,7 @@ elif menu == "데이터 업로드":
                     elif col == "상태":
                         uploaded_df[col] = "진행 중"  # Default status
                     elif col == "등록일":
-                        uploaded_df[col] = datetime.date.today().strftime("%Y-%m-%d") # Default date
+                        uploaded_df[col] = datetime.date.today().strftime("%Y-%m-%d")  # Default date
                     else:
                         uploaded_df[col] = ""  # Default empty string for other missing columns
 
@@ -181,11 +233,24 @@ elif menu == "데이터 업로드":
                 else:
                     tasks_df = uploaded_df[REQUIRED_COLUMNS]
 
-                tasks_df.to_csv(DATA_FILE, index=False, encoding='utf-8')
-                st.success("데이터가 성공적으로 업로드되었습니다.")
+                #tasks_df.to_csv(DATA_FILE, index=False, encoding='utf-8') # 로컬 저장 주석처리
+                if save_data_to_github(tasks_df): # GitHub에 저장
+                    st.success("데이터가 성공적으로 업로드되었습니다.")
+                else:
+                    st.error("GitHub 저장에 실패했습니다.") # GitHub 저장 실패 메시지 추가
+                st.experimental_rerun()
 
         except Exception as e:
             st.error(f"파일 업로드 중 오류 발생: {e}")
+
+elif menu == "GitHub 저장":
+    st.subheader("GitHub 저장")
+    commit_message = st.text_input("커밋 메시지", "Update data from Streamlit app")
+    if st.button("GitHub에 저장"):
+        if save_data_to_github(tasks_df, commit_message):
+            st.success("데이터가 GitHub에 성공적으로 저장되었습니다.")
+        else:
+            st.error("GitHub 저장에 실패했습니다.")
 
 elif menu == "관리자 설정(예정)":
     st.subheader("관리자 설정")
