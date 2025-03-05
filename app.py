@@ -54,21 +54,28 @@ task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논
 # --- Data Loading Function (from GitHub) ---
 @st.cache_data(ttl=300)  # 5분 캐싱하여 불필요한 GitHub 호출 방지
 def load_data_from_github():
-    """GitHub에서 CSV 데이터를 불러오는 함수 (로딩 상태 표시)"""
-    with st.spinner("GitHub에서 데이터를 불러오는 중..."):
-        try:
-            url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{DATA_FILE}"
-            df = pd.read_csv(url, encoding='utf-8')
+    """GitHub에서 CSV 데이터를 불러옴"""
+    try:
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{DATA_FILE}"
+        df = pd.read_csv(url, encoding='utf-8')
 
-            if df.empty:
-                st.warning("GitHub 데이터가 비어 있습니다. 새로운 데이터를 추가하세요.")
-                return pd.DataFrame(columns=REQUIRED_COLUMNS)
+        if df.empty:
+            return pd.DataFrame(columns=REQUIRED_COLUMNS), f"⚠️ {DATA_FILE} 파일이 비어 있습니다."
 
-            st.success("데이터 로드 완료 ✅")
-            return df
-        except Exception as e:
-            st.error(f"❌ 데이터 로딩 실패: {e}")
-            return pd.DataFrame(columns=REQUIRED_COLUMNS)
+        return df, None  # 정상 로드 시 오류 메시지 없음
+    except Exception as e:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS), f"❌ {DATA_FILE} 로드 실패: {e}"
+
+# --- 데이터 로드 ---
+with st.spinner(f"{DATA_FILE} 불러오는 중..."):
+    tasks_df, error_message = load_data_from_github()
+
+# --- 메시지 출력 (중복 방지) ---
+if error_message:
+    st.error(error_message)
+else:
+    st.success(f"✅ {DATA_FILE} 로드 완료!")
+
 
 # --- 데이터 로딩 시 로딩 메시지 표시 ---
 tasks_df = load_data_from_github()
