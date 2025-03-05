@@ -11,3 +11,4 @@ folium
 netCDF4
 #os
 plotly
+GitPython
