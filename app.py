@@ -237,4 +237,41 @@ elif menu == "데이터 업로드":
 
             if st.button("데이터 업로드"):
                 if overwrite == "기존 데이터에 추가":
-                    tasks_df =
+                    tasks_df = pd.concat([tasks_df, uploaded_df[REQUIRED_COLUMNS]], ignore_index=True)
+                else:
+                    tasks_df = uploaded_df[REQUIRED_COLUMNS]
+
+                if save_data_to_github(tasks_df):
+                    st.success("데이터가 성공적으로 업로드되었으며, GitHub에 저장되었습니다.")
+                    # GitHub에서 데이터 다시 불러오기 (즉시 반영)
+                    tasks_df = load_data_from_github()
+                    st.rerun()
+
+                else:
+                    st.error("GitHub 저장에 실패했습니다.")
+
+        except Exception as e:
+            st.error(f"파일 업로드 중 오류 발생: {e}")
+
+elif menu == "GitHub 저장":
+    st.subheader("GitHub 저장")
+    commit_message = st.text_input("커밋 메시지", "Update data from Streamlit app")
+    if st.button("GitHub에 저장"):
+        if save_data_to_github(tasks_df, commit_message):
+            st.success("데이터가 GitHub에 성공적으로 저장되었습니다.")
+            # GitHub에서 데이터 다시 불러오기 (즉시 반영)
+            tasks_df = load_data_from_github()
+            st.rerun()
+
+        else:
+            st.error("GitHub 저장에 실패했습니다.")
+
+elif menu == "관리자 설정(예정)":
+    st.subheader("관리자 설정")
+    st.write("추후 개발 예정")
+
+st.markdown("---")
+st.markdown("**K-water AI LAB**")
+st.markdown(
+    "참여 인력: 김성훈, 이호현, 이충성, 정지영, 김세훈, 정희진, 최영돈, 류제완, 이소령, 김학준, 김용섭, 이아론, 추가채용(예정) (총 13명, 추가 가능)"
+)
