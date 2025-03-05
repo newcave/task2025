@@ -53,14 +53,10 @@ task_types = ["R&D과제", "내부전문가 과제", "기타 업무지원", "논
 
 # --- Data Loading Function (from GitHub) ---
 def load_data_from_github():
-    """GitHub 저장소에서 CSV 파일을 불러옵니다. (requests 사용)"""
+    """GitHub 저장소에서 CSV 파일을 불러옵니다."""
     try:
-        url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/{DATA_FILE}"
-        headers = {"Authorization": f"token {GITHUB_TOKEN}"}  # 헤더에 토큰 추가 (private repo인 경우)
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()  # HTTP 오류 발생 시 예외 발생 (4xx, 5xx)
-        data = io.StringIO(response.text)
-        df = pd.read_csv(data, encoding='utf-8')
+        url = f"https://raw.githubusercontent.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/main/{DATA_FILE}"
+        df = pd.read_csv(url, encoding='utf-8')
         return df
     except Exception as e:
         st.error(f"GitHub에서 데이터 로드 중 오류 발생: {e}")
