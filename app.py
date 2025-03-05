@@ -18,7 +18,7 @@ import requests
 GITHUB_TOKEN = st.secrets["github"]["token"]
 GITHUB_REPO_OWNER = st.secrets["github"]["repo_owner"]
 GITHUB_REPO_NAME = st.secrets["github"]["repo_name"]
-GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}.git"
+GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}"
 
 DATA_FILE = "tasks.csv"
 REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
