@@ -12,7 +12,7 @@ import requests
 GITHUB_REPO_OWNER = "newcave"  # GitHub 사용자 이름
 GITHUB_REPO_NAME = "task2025"  # GitHub 저장소 이름
 GITHUB_REPO_URL = f"https://github.com/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}"
-GITHUB_TOKEN = "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"
+#GITHUB_TOKEN = "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"
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Streamlit Secrets에서 GitHub 토큰 가져오기
 DATA_FILE = "tasks.csv"
 REQUIRED_COLUMNS = ["업무 제목", "업무 유형", "담당자", "마감일", "상태", "세부 내용", "등록일"]
